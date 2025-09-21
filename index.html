@@ -111,6 +111,15 @@
                 G: { A: 0.4, T: 0.2, C: 0.3, G: 0.1 }
             });
 
+            // Validation function for prior probabilities
+            const validatePriorProbabilities = () => {
+                const sum = Object.values(priorProbs).reduce((acc, val) => acc + val, 0);
+                return {
+                    isValid: Math.abs(sum - 1.0) < 0.0001, // Allow for small floating point errors
+                    sum: sum
+                };
+            };
+
             const calculateSequenceProbability = () => {
                 if (sequence.length === 0) return { total: 0, steps: [] };
                 
@@ -152,6 +161,7 @@
             };
 
             const { total: totalProbability, steps } = calculateSequenceProbability();
+            const priorValidation = validatePriorProbabilities();
 
             useEffect(() => {
                 if (autoPlay && currentStep < steps.length) {
@@ -221,6 +231,32 @@
                         // Prior Probabilities
                         React.createElement('div', { className: "bg-green-50 p-6 rounded-lg" },
                             React.createElement('h2', { className: "text-xl font-semibold mb-4 text-green-800" }, "Prior Probabilities P(X₁)"),
+                            
+                            // Validation warning
+                            !priorValidation.isValid && React.createElement('div', { 
+                                className: "mb-4 p-3 bg-red-100 border-2 border-red-300 rounded-lg" 
+                            },
+                                React.createElement('div', { className: "flex items-center gap-2 text-red-800" },
+                                    React.createElement('span', { className: "text-lg" }, "⚠️"),
+                                    React.createElement('strong', {}, "Warning: Prior probabilities must sum to 1.0")
+                                ),
+                                React.createElement('div', { className: "text-red-700 text-sm mt-1" },
+                                    `Current sum: ${priorValidation.sum.toFixed(4)}. Please adjust the values so they total 1.0.`
+                                )
+                            ),
+                            
+                            // Sum display
+                            React.createElement('div', { className: "mt-4 p-3 bg-white rounded-lg border" },
+                                React.createElement('div', { className: "flex justify-between items-center" },
+                                    React.createElement('span', { className: "font-semibold text-gray-700" }, "Sum of probabilities:"),
+                                    React.createElement('span', { 
+                                        className: `font-mono text-lg font-bold ${
+                                            priorValidation.isValid ? 'text-green-600' : 'text-red-600'
+                                        }`
+                                    }, priorValidation.sum.toFixed(4))
+                                )
+                            ),
+                            
                             React.createElement('div', { className: "grid grid-cols-2 gap-4" },
                                 Object.entries(priorProbs).map(([base, prob]) =>
                                     React.createElement('div', { key: base, className: "flex items-center gap-2" },
@@ -285,8 +321,12 @@
                                 React.createElement('div', { className: "flex gap-2" },
                                     React.createElement('button', {
                                         onClick: () => setAutoPlay(!autoPlay),
-                                        className: "flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50",
-                                        disabled: currentStep >= steps.length
+                                        className: `flex items-center gap-2 px-4 py-2 rounded-lg ${
+                                            priorValidation.isValid 
+                                                ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                                                : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                                        } disabled:opacity-50`,
+                                        disabled: currentStep >= steps.length || !priorValidation.isValid
                                     },
                                         React.createElement(Play, { size: 16 }),
                                         autoPlay ? 'Pause' : 'Auto Play'
@@ -353,10 +393,22 @@
                                     )
                                 ),
                                 
-                                currentStep > 0 && currentStep < steps.length && React.createElement('button', {
+                                currentStep > 0 && currentStep < steps.length && priorValidation.isValid && React.createElement('button', {
                                     onClick: () => setCurrentStep(currentStep + 1),
                                     className: "w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
-                                }, "Next Step")
+                                }, "Next Step"),
+                                
+                                // Show error message if trying to calculate with invalid probabilities
+                                currentStep > 0 && currentStep < steps.length && !priorValidation.isValid && React.createElement('div', {
+                                    className: "w-full py-3 bg-red-100 border-2 border-red-300 rounded-lg text-center"
+                                },
+                                    React.createElement('p', { className: "text-red-800 font-semibold" },
+                                        "Cannot proceed: Prior probabilities must sum to 1.0"
+                                    ),
+                                    React.createElement('p', { className: "text-red-600 text-sm mt-1" },
+                                        "Please correct the prior probabilities before continuing."
+                                    )
+                                )
                             ),
                             
                             // Final result
